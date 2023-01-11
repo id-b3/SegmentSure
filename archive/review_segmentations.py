@@ -5,7 +5,6 @@ import os
 from PIL import Image, ImageTk
 import pandas as pd
 
-
 image_filenames = os.listdir("./Segmentation_Check/")
 df_error = pd.read_csv("./list_scans_with_seg_errors.csv")
 # df_error = df_error.loc[df_error.bp_err_reviewed == 0]
@@ -46,10 +45,16 @@ errvar.set(1)
 
 # Create Dropdown
 reasonvar = StringVar()
-reason = ttk.Combobox(state="readonly", textvariable=reasonvar, values=["Discontinuous", "Expiratory", "Leaks", "Other"])
+reason = ttk.Combobox(state="readonly",
+                      textvariable=reasonvar,
+                      values=["Discontinuous", "Expiratory", "Leaks", "Other"])
 reason.current(0)
 reason.grid(column=1, row=4, columnspan=3)
-err_box = tk.Checkbutton(root, text="SegErr", variable=errvar, onvalue=1, offvalue=0)
+err_box = tk.Checkbutton(root,
+                         text="SegErr",
+                         variable=errvar,
+                         onvalue=1,
+                         offvalue=0)
 err_box.grid(column=1, row=3)
 
 
@@ -121,12 +126,19 @@ show_image(df_error.iloc[im_idx]["participant_id"])
 show_values()
 
 # Create the "Prev" button
-prev_button = tk.Button(root, text="Prev", command=on_prev_click, font=('Arial', 26))
+prev_button = tk.Button(root,
+                        text="Prev",
+                        command=on_prev_click,
+                        font=('Arial', 26))
 prev_button.grid(column=1, row=1)
 
 # Create the "Next" button
-next_button = tk.Button(root, text="Next", command=on_next_click, font=('Arial', 26))
+next_button = tk.Button(root,
+                        text="Next",
+                        command=on_next_click,
+                        font=('Arial', 26))
 next_button.grid(column=3, row=1)
+
 
 def key_pressed(event):
     if event.char == "p":
@@ -152,4 +164,3 @@ root.bind("<KeyPress>", key_pressed)
 
 # Start the GUI event loop
 root.mainloop()
-

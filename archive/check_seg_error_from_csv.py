@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
+
 import pandas as pd
 import numpy as np
 
-df = pd.read_csv("redcap_summary.csv")
+df = pd.read_csv(input("Enter input csv: "))
 
 
 def check_row(tlv, airvol, tcount):
@@ -15,6 +17,8 @@ def check_row(tlv, airvol, tcount):
         return 0
 
 
-df['bp_seg_error'] = np.where((df.bp_tlv > 8.0) | (df.bp_airvol > 0.4) | (df.bp_tcount > 400) | (df.bp_tlv < 3.0) | (df.bp_airvol < 0.08) | (df.bp_tcount < 150), 1, 0)
+df['bp_seg_error'] = np.where(
+    (df.bp_tlv > 8.0) | (df.bp_airvol > 0.4) | (df.bp_tlv < 3.0) |
+    (df.bp_airvol < 0.08) | (df.bp_tcount < 150), 1, 0)
 
-df.to_csv("redcap_summary_corrected.csv")
+df.to_csv("merged_summaries_nohtac.csv", index=False)
