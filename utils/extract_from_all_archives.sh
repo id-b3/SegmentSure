@@ -18,19 +18,20 @@ echo "Pattern: $extract_pattern"
 echo "Output:  $output_dir"
 echo "Save:    [ID]_$save_pattern"
 
+N=16
+(
 for subdir in "$main_dir"/*/ ; do
-    echo $subdir
-    # tar xvf $subdir/*_bronchial_results.tar.gz 
+    ((i=i%N)); ((i++==0)) && wait
+    {
     filename=$(tar tf $subdir/$tarball --wildcards $extract_pattern)
     if [ -n "$filename" ]; then
         echo "Extracting $filename..."
         save_name="$(basename $subdir)_$save_pattern"
         transform_exp="s|$filename|$save_name|"
-        echo $transform_exp
         tar --transform=$transform_exp -C "$output_dir" -xf "$subdir"/$tarball "$filename" &
     else
         echo "Pattern not found in $subdir"
     fi
-
+    } &
 done
-
+)

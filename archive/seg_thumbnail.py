@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
+import argparse
+import re
+import multiprocessing as mp
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
-import argparse
 import nibabel as nib
+from tqdm import tqdm
 
 plt.rcParams.update({
     "savefig.facecolor": "black",
@@ -18,6 +23,7 @@ def crop_image(image: np.ndarray, padding: tuple = (0, 0, 0)) -> np.ndarray:
     :param padding: voxels to pad in the x, y, z axes
     :return: cropped 3D mask
     """
+
     def fit_to_image(boundbox: tuple):
         # get the max between x1 and 0 (lower bound)
         # and min between x2 and max image size (upper bound)
@@ -49,10 +55,9 @@ def crop_image(image: np.ndarray, padding: tuple = (0, 0, 0)) -> np.ndarray:
     return cropped_img
 
 
-def main(args):
-    print(f"Making Segmentation Thumbnail:\n{args.in_seg}\n{args.out_img}")
-    air_seg = nib.load(args.in_seg).get_fdata()
+def process_segmentation(in_seg):
 
+    air_seg = nib.load(in_seg).get_fdata()
     air_seg = crop_image(air_seg, padding=(4, 4, 4))
     f, axarr = plt.subplots(1, 3, figsize=(42, 12))
     axarr[0].imshow(np.rot90(air_seg.sum(axis=0)),
@@ -66,12 +71,22 @@ def main(args):
     axarr[1].axis("off")
     axarr[2].axis("off")
     plt.tight_layout()
-    f.savefig(f"{args.out_img}")
+    id_name = re.search(r'\d{6}', str(in_seg)).group()
+    f.savefig(f"{in_seg.parent.parent}/Segmentation_Thumb/{id_name}.jpg")
+    plt.close()
+
+
+def main(args):
+    list_segs = [f for f in Path(args.in_seg).iterdir() if f.is_file()]
+    list_segs.sort()
+    p = mp.Pool(16)
+    list(tqdm(p.imap(process_segmentation, list_segs), total=len(list_segs)))
+    p.close()
+    p.join()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("in_seg", type=str, help="Input segmentation file.")
-    parser.add_argument("out_img", type=str, help="Output segmentation file.")
     in_args = parser.parse_args()
     main(in_args)
