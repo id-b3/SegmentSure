@@ -1,215 +1,27 @@
 #!/usr/bin/env python
-# coding: utf-8
 
-from pathlib import Path
+import sys
 
 from PyQt5 import QtCore, QtGui
-from PyQt5.QtWidgets import (QGraphicsView, QGraphicsScene,
-                             QGraphicsPixmapItem, QFrame, QPushButton,
-                             QHBoxLayout, QVBoxLayout, QLabel, QCheckBox,
-                             QComboBox, QApplication, QFileDialog, QWidget,
-                             QMessageBox)
+from PyQt5.QtWidgets import (QPushButton, QHBoxLayout, QVBoxLayout, QLabel,
+                             QCheckBox, QComboBox, QApplication, QWidget,
+                             QFrame)
 import nibabel as nib
-import pandas as pd
-from mayavi import mlab
 from skimage.measure import marching_cubes
+from src.dataloader import DataLoader
+from src.filedialog import SelectPathsDialog
+from src.segviewer import SegmentationViewer
+from src.likert import LikertScale
 
 
-class DataLoader():
-
-    def __init__(self, image_dir: str, seg_dir: str, summary_path: str):
-        """
-        Loads the images, segmentations and summary dataframes.
-        :param image_dir str: Path containing segmentation images.
-        :param seg_dir str: Path containing nifti format segmentations.
-        :param summary_path str: Summary csv path.
-        """
-        self.image_list = [i for i in Path(image_dir).iterdir() if i.is_file()]
-        self.summary_df = pd.read_csv(summary_path)
-        self.seg_list = [s for s in Path(seg_dir).iterdir() if s.is_file()]
-
-        self.prep_df()
-        self.get_flagged_df()
-
-    def prep_df(self):
-        self.summary_df["bp_reviewed"] = self.summary_df.get("bp_reviewed", 0)
-        self.summary_df["bp_err_reason"] = self.summary_df.get(
-            "bp_err_reason", "")
-
-    def get_flagged_df(self):
-        """
-        Filters the summary by the bp_seg_error flag.
-        """
-        self.flagged_df = self.summary_df[self.summary_df.bp_seg_error == 1]
-        self.flagged_df.reset_index(drop=True, inplace=True)
-
-    def get_random_sample(self, number: int = 100):
-        """
-        Returns n random segmentations
-        """
-        self.random_df = self.summary_df.sample(number)
-        self.random_df.reset_index(drop=True, inplace=True)
-
-
-class SelectPathsDialog(QWidget):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-
-        self.parent = parent
-        # Create buttons to select the paths
-        self.images_button = QPushButton("Select Images Folder")
-        self.segmentations_button = QPushButton("Select Segmentations Folder")
-        self.csv_button = QPushButton("Select CSV File")
-        self.confirm_button = QPushButton("Confirm and Exit")
-
-        # Create labels to display the selected paths
-        self.images_label = QLabel("No folder selected")
-        self.segmentations_label = QLabel("No folder selected")
-        self.csv_label = QLabel("No file selected")
-
-        # Set up the layout
-        layout = QVBoxLayout()
-        layout.addWidget(self.images_button)
-        layout.addWidget(self.images_label)
-        layout.addWidget(self.segmentations_button)
-        layout.addWidget(self.segmentations_label)
-        layout.addWidget(self.csv_button)
-        layout.addWidget(self.csv_label)
-        layout.addWidget(self.confirm_button)
-        self.setLayout(layout)
-
-        # Connect the buttons to their respective functions
-        self.images_button.clicked.connect(self.select_images_folder)
-        self.segmentations_button.clicked.connect(
-            self.select_segmentations_folder)
-        self.csv_button.clicked.connect(self.select_csv_file)
-        self.confirm_button.clicked.connect(self.confirm_and_exit)
-
-    def select_images_folder(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        folder = QFileDialog.getExistingDirectory(self,
-                                                  "Select Images Folder",
-                                                  options=options)
-        if folder:
-            # Save the selected folder to a class variable
-            self.images_folder = folder
-            # Update the label to display the selected folder
-            self.images_label.setText(folder)
-
-    def select_segmentations_folder(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        folder = QFileDialog.getExistingDirectory(
-            self, "Select Segmentations Folder", options=options)
-        if folder:
-            # Save the selected folder to a class variable
-            self.segmentations_folder = folder
-            # Update the label to display the selected folder
-            self.segmentations_label.setText(folder)
-
-    def select_csv_file(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select CSV File",
-            "",
-            "CSV Files (*.csv);;All Files (*)",
-            options=options)
-        if file:
-            # Save the selected file to a class variable
-            self.csv_file = file
-            # Update the label to display the selected file
-            self.csv_label.setText(file)
-
-    def confirm_and_exit(self):
-        try:
-            self.parent.load_data(
-                [self.images_folder, self.segmentations_folder, self.csv_file])
-            self.hide()
-        except Exception as e:
-            # create an error message box
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Critical)
-            msg.setText(
-                f"{str(e)} \n\n Please select correct folders and csv file.")
-            msg.setWindowTitle("Error")
-            msg.exec_()
-
-
-class PhotoViewer(QGraphicsView):
-    photoClicked = QtCore.pyqtSignal(QtCore.QPoint)
-
-    def __init__(self, parent):
-        super(PhotoViewer, self).__init__(parent)
-        self._zoom = 0
-        self._empty = True
-        self._scene = QGraphicsScene(self)
-        self._photo = QGraphicsPixmapItem()
-        self._scene.addItem(self._photo)
-        self.setScene(self._scene)
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.setBackgroundBrush(QtGui.QBrush(QtGui.QColor(30, 30, 30)))
-        self.setFrameShape(QFrame.NoFrame)
-
-    def hasPhoto(self):
-        return not self._empty
-
-    def fitInView(self, scale=True):
-        rect = QtCore.QRectF(self._photo.pixmap().rect())
-        if not rect.isNull():
-            self.setSceneRect(rect)
-            if self.hasPhoto():
-                unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-                self.scale(1 / unity.width(), 1 / unity.height())
-                viewrect = self.viewport().rect()
-                scenerect = self.transform().mapRect(rect)
-                factor = min(viewrect.width() / scenerect.width(),
-                             viewrect.height() / scenerect.height())
-                self.scale(factor, factor)
-            self._zoom = 0
-
-    def setPhoto(self, pixmap=None):
-        self._zoom = 0
-        if pixmap and not pixmap.isNull():
-            self._empty = False
-            self.setDragMode(QGraphicsView.ScrollHandDrag)
-            self._photo.setPixmap(pixmap)
-        else:
-            self._empty = True
-            self.setDragMode(QGraphicsView.NoDrag)
-            self._photo.setPixmap(QtGui.QPixmap())
-            self.fitInView()
-
-    def wheelEvent(self, event):
-        if self.hasPhoto():
-            if event.angleDelta().y() > 0:
-                factor = 1.25
-                self._zoom += 1
-            else:
-                factor = 0.8
-                self._zoom -= 1
-            if self._zoom > 0:
-                self.scale(factor, factor)
-            elif self._zoom == 0:
-                self.fitInView()
-            else:
-                self._zoom = 0
-
-
-class SegReviewer(QWidget):
+class MainWindow(QWidget):
 
     def __init__(self):
-        super(SegReviewer, self).__init__()
+        super(MainWindow, self).__init__()
 
         self.idx = 0
 
-        self.viewer = PhotoViewer(self)
+        self.viewer = SegmentationViewer(self)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         files_dialog = SelectPathsDialog(self)
@@ -233,9 +45,15 @@ class SegReviewer(QWidget):
         button_layout.addWidget(seg_button)
 
         # Create labels
+        font = QtGui.QFont()
+        font.setPointSize(26)
         self.tlv_label = QLabel("TLV:", self)
         self.tav_label = QLabel("TAV:", self)
         self.tac_label = QLabel("TAC:", self)
+
+        self.tlv_label.setFont(font)
+        self.tav_label.setFont(font)
+        self.tac_label.setFont(font)
 
         label_layout = QHBoxLayout()
         label_layout.addWidget(self.tlv_label)
@@ -245,9 +63,14 @@ class SegReviewer(QWidget):
         # Create checkboxes
         self.error_checkbox = QCheckBox("Error", self)
         self.reviewed_checkbox = QCheckBox("Reviewed", self)
+        self.error_checkbox.setFont(font)
+        self.reviewed_checkbox.setFont(font)
 
         self.error_checkbox.setShortcut("e")
         self.reviewed_checkbox.setShortcut("r")
+
+        self.error_checkbox.stateChanged.connect(self.err_box_checked)
+        self.reviewed_checkbox.stateChanged.connect(self.rev_box_checked)
 
         # Create the combobox and add options
         reason_combobox = QComboBox(self)
@@ -255,30 +78,59 @@ class SegReviewer(QWidget):
         reason_combobox.addItem("Leak")
         reason_combobox.addItem("Expiratory")
         reason_combobox.addItem("Other")
+        reason_combobox.setFont(font)
+
+        scale1 = LikertScale(self, "Detected Leaks",
+                             ["None", "Mild", "Moderate", "Severe"])
+        scale2 = LikertScale(self, "Segmental Branches",
+                             ["None", "Mild", "Moderate", "Severe"])
+        scale3 = LikertScale(
+            self, "Segmentation Extent",
+            ["Complete", "Almost Complete", "Partial", "Incomplete"])
+
+        likert_layout = QHBoxLayout()
+        likert_layout.addWidget(scale1)
+
+        # Create a line separator
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        line.setFrameShadow(QFrame.Sunken)
+        likert_layout.addWidget(line)
+
+        likert_layout.addWidget(scale2)
+
+        # Create a line separator
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        line.setFrameShadow(QFrame.Sunken)
+        likert_layout.addWidget(line)
+
+        likert_layout.addWidget(scale3)
 
         # Add the checkboxes and combobox to the layout
         checkbox_layout = QHBoxLayout()
-        checkbox_layout.addWidget(error_checkbox)
-        checkbox_layout.addWidget(reviewed_checkbox)
+        checkbox_layout.addWidget(self.error_checkbox)
+        checkbox_layout.addWidget(self.reviewed_checkbox)
         checkbox_layout.addWidget(reason_combobox)
         checkbox_layout.addWidget(files_dialog)
 
         # Arrange layout
-        VBlayout = QVBoxLayout(self)
-        VBlayout.addWidget(self.viewer)
-        VBlayout.addLayout(button_layout)
-        VBlayout.addLayout(label_layout)
-        VBlayout.addLayout(checkbox_layout)
+        vblayout = QVBoxLayout(self)
+        vblayout.addWidget(self.viewer)
+        vblayout.addLayout(button_layout)
+        vblayout.addLayout(label_layout)
+        vblayout.addLayout(checkbox_layout)
+        vblayout.addLayout(likert_layout)
 
         self.showMaximized()
 
     def load_case(self, increment: bool):
 
         def _load_image(pid):
-            pid = str(int(pid))
+            pid = str(pid)
             if any(pid in s for s in self.revdata.image_list):
                 matching = [s for s in self.revdata.image_list if pid in s]
-                image_path = f"./Segmentation_Check/{matching[0]}"
+                image_path = matching[0]
                 self.viewer.setPhoto(QtGui.QPixmap(image_path))
             else:
                 print(f"{pid} segmentation image not found")
@@ -292,9 +144,12 @@ class SegReviewer(QWidget):
                     return "black"
 
             pid = str(int(pid))
-            tlv = self.revdata.flagged_df.iloc[self.idx]['bp_tlv']
-            tav = self.revdata.flagged_df.iloc[self.idx]['bp_airvol']
-            tac = self.revdata.flagged_df.iloc[self.idx]['bp_tcount']
+            tlv = self.revdata.flagged_df.at[self.idx, 'bp_tlv']
+            tav = self.revdata.flagged_df.at[self.idx, 'bp_airvol']
+            tac = self.revdata.flagged_df.at[self.idx, 'bp_tcount']
+
+            err = self.revdata.flagged_df.at[self.idx, 'bp_seg_error']
+            rev = self.revdata.flagged_df.at[self.idx, 'bp_reviewed']
 
             tlv_col = _get_color(tlv, 3.5, 8.0)
             tav_col = _get_color(tav, 0.08, 0.4)
@@ -305,17 +160,33 @@ class SegReviewer(QWidget):
             self.tac_label.setText(f"TAC: {tac}")
 
             self.tlv_label.setStyleSheet(f"color: {tlv_col};")
-            self.tlv_label.setStyleSheet(f"color: {tav_col};")
-            self.tlv_label.setStyleSheet(f"color: {tac_col};")
+            self.tav_label.setStyleSheet(f"color: {tav_col};")
+            self.tac_label.setStyleSheet(f"color: {tac_col};")
+
+            if err == 1:
+                self.error_checkbox.setChecked(True)
+            else:
+                self.error_checkbox.setChecked(False)
+
+            if rev == 1:
+                self.reviewed_checkbox.setChecked(True)
+            else:
+                self.reviewed_checkbox.setChecked(False)
 
         def _get_pid(increment):
             if increment:
                 self.idx += 1
             else:
                 self.idx -= 1
-            if abs(self.idx) >= self.revdata.flagged_df.shape[0]:
+            if self.idx >= self.revdata.flagged_df.shape[0]:
                 self.idx = 0
-            pt_id = self.revdata.flagged_df.at(self.idx, "participant_id")
+            elif self.idx < 0:
+                self.idx = self.revdata.flagged_df.shape[0] - 1
+
+            if self.idx % 10 == 0:
+                self.revdata.save_flagged_df()
+
+            pt_id = self.revdata.flagged_df.at[self.idx, "participant_id"]
             return pt_id
 
         pid = _get_pid(increment)
@@ -329,6 +200,9 @@ class SegReviewer(QWidget):
         self.load_case(False)
 
     def seg_button_clicked(self):
+        if 'mlab' not in sys.modules:
+            from mayavi import mlab
+
         seg_arr = nib.load("segmentation.nii.gz").get_fdata()
         verts, faces, norms, vals = marching_cubes(seg_arr, 0)
         mlab.triangular_mesh(verts[:, 0], verts[:, 1], verts[:, 2], faces)
@@ -337,6 +211,19 @@ class SegReviewer(QWidget):
     def load_data(self, path_list):
         self.revdata = DataLoader(path_list[0], path_list[1], path_list[2])
         print("Data Loaded")
+
+    def err_box_checked(self, state):
+        if state == QtCore.Qt.Checked:
+            self.revdata.flagged_df.at[self.idx, "bp_seg_error"] = 1
+        else:
+            self.revdata.flagged_df.at[self.idx, "bp_seg_error"] = 0
+            print("Set error to 0")
+
+    def rev_box_checked(self, state):
+        if state == QtCore.Qt.Checked:
+            self.revdata.flagged_df.at[self.idx, "bp_reviewed"] = 1
+        else:
+            self.revdata.flagged_df.at[self.idx, "bp_reviewed"] = 0
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_E:
@@ -350,8 +237,8 @@ class SegReviewer(QWidget):
 
 
 if __name__ == '__main__':
-    import sys
-    app = QApplication(sys.argv)
-    reviewer = SegReviewer()
+    app = QApplication([])
+    reviewer = MainWindow()
+    # reviewer = QLabel("Hello World")
     reviewer.show()
-    sys.exit(app.exec_())
+    app.exec()
