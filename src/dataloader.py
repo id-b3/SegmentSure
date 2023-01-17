@@ -29,12 +29,19 @@ class DataLoader():
         self.summary_df["bp_reviewed"] = self.summary_df.get("bp_reviewed", 0)
         self.summary_df["bp_err_reason"] = self.summary_df.get(
             "bp_err_reason", "")
+        self.summary_df["bp_leak_score"] = self.summary_df.get(
+            "bp_leak_score", -1)
+        self.summary_df["bp_segmental_score"] = self.summary_df.get(
+            "bp_segmental_score", -1)
+        self.summary_df["bp_subsegmental_score"] = self.summary_df.get(
+            "bp_subsegmental_score", -1)
 
     def get_flagged_df(self):
         """
         Filters the summary by the bp_seg_error flag.
         """
-        self.flagged_df = self.summary_df[self.summary_df.bp_seg_error == 1]
+        self.flagged_df = self.summary_df[(self.summary_df.bp_seg_error == 1)
+                                          & (self.summary_df.bp_reviewed == 0)]
         self.flagged_df.reset_index(drop=True, inplace=True)
 
     def get_random_sample(self, number: int = 100):

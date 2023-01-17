@@ -73,23 +73,23 @@ class MainWindow(QWidget):
         self.reviewed_checkbox.stateChanged.connect(self.rev_box_checked)
 
         # Create the combobox and add options
-        reason_combobox = QComboBox(self)
-        reason_combobox.addItem("Discontinuous")
-        reason_combobox.addItem("Leak")
-        reason_combobox.addItem("Expiratory")
-        reason_combobox.addItem("Other")
-        reason_combobox.setFont(font)
+        self.reason_combobox = QComboBox(self)
+        self.reason_combobox.addItem("Discontinuous")
+        self.reason_combobox.addItem("Leak")
+        self.reason_combobox.addItem("Expiratory")
+        self.reason_combobox.addItem("Other")
+        self.reason_combobox.setFont(font)
 
-        scale1 = LikertScale(self, "Detected Leaks",
-                             ["None", "Mild", "Moderate", "Severe"])
-        scale2 = LikertScale(self, "Segmental Branches",
-                             ["None", "Mild", "Moderate", "Severe"])
-        scale3 = LikertScale(
+        self.scale_leaks = LikertScale(self, "Detected Leaks",
+                                       ["None", "Mild", "Moderate", "Severe"])
+        self.scale_segmental = LikertScale(
+            self, "Segmental Branches", ["None", "Mild", "Moderate", "Severe"])
+        self.scale_subseg = LikertScale(
             self, "Segmentation Extent",
             ["Complete", "Almost Complete", "Partial", "Incomplete"])
 
         likert_layout = QHBoxLayout()
-        likert_layout.addWidget(scale1)
+        likert_layout.addWidget(self.scale_leaks)
 
         # Create a line separator
         line = QFrame()
@@ -97,7 +97,7 @@ class MainWindow(QWidget):
         line.setFrameShadow(QFrame.Sunken)
         likert_layout.addWidget(line)
 
-        likert_layout.addWidget(scale2)
+        likert_layout.addWidget(self.scale_segmental)
 
         # Create a line separator
         line = QFrame()
@@ -105,13 +105,13 @@ class MainWindow(QWidget):
         line.setFrameShadow(QFrame.Sunken)
         likert_layout.addWidget(line)
 
-        likert_layout.addWidget(scale3)
+        likert_layout.addWidget(self.scale_subseg)
 
         # Add the checkboxes and combobox to the layout
         checkbox_layout = QHBoxLayout()
         checkbox_layout.addWidget(self.error_checkbox)
         checkbox_layout.addWidget(self.reviewed_checkbox)
-        checkbox_layout.addWidget(reason_combobox)
+        checkbox_layout.addWidget(self.reason_combobox)
         checkbox_layout.addWidget(files_dialog)
 
         # Arrange layout
@@ -173,6 +173,17 @@ class MainWindow(QWidget):
             else:
                 self.reviewed_checkbox.setChecked(False)
 
+        def _set_values():
+            self.revdata.flagged_df.at[
+                self.idx,
+                'bp_err_reason'] = self.reason_combobox.current_Text()
+            self.revdata.flagged_df.at[
+                self.idx, 'bp_leak_score'] = self.scale_leaks.score
+            self.revdata.flagged_df.at[
+                self.idx, 'bp_segmental_score'] = self.scale_segmental.score
+            self.revdata.flagged_df.at[
+                self.idx, 'bp_subsegmental_score'] = self.scale_subseg.score
+
         def _get_pid(increment):
             if increment:
                 self.idx += 1
@@ -189,6 +200,7 @@ class MainWindow(QWidget):
             pt_id = self.revdata.flagged_df.at[self.idx, "participant_id"]
             return pt_id
 
+        _set_values()
         pid = _get_pid(increment)
         _load_image(pid)
         _load_values(pid)
@@ -234,6 +246,36 @@ class MainWindow(QWidget):
             self.prev_button_clicked()
         elif event.key() == QtCore.Qt.Key_N:
             self.next_button_clicked()
+        elif event.key() == QtCore.Qt.Key_3:
+            self.scale_leaks.lowest_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_2:
+            self.scale_leaks.low_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_1:
+            self.scale_leaks.high_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_6:
+            self.scale_segmental.lowest_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_5:
+            self.scale_segmental.low_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_4:
+            self.scale_segmental.high_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_9:
+            self.scale_subseg.lowest_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_8:
+            self.scale_subseg.low_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_7:
+            self.scale_subseg.high_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_0:
+            self.scale_leaks.highest_button.setChecked(True)
+            self.scale_segmental.highest_button.setChecked(True)
+            self.scale_subseg.highest_button.setChecked(True)
+        elif event.key() == QtCore.Qt.Key_D:
+            self.reason_combobox.setCurrentIndex(0)
+        elif event.key() == QtCore.Qt.Key_X:
+            self.reason_combobox.setCurrentIndex(2)
+        elif event.key() == QtCore.Qt.Key_O:
+            self.reason_combobox.setCurrentIndex(3)
+        elif event.key() == QtCore.Qt.Key_L:
+            self.reason_combobox.setCurrentIndex(1)
 
 
 if __name__ == '__main__':

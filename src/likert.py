@@ -11,6 +11,8 @@ class LikertScale(QWidget):
                  labels=["3", "2", "1", "0"]):
         super(LikertScale, self).__init__(parent)
 
+        self.score = 3
+
         title = QLabel(name)
         title_font = QFont()
         title_font.setBold(True)
@@ -28,30 +30,30 @@ class LikertScale(QWidget):
         lowest = QLabel(labels[3])
 
         # Create radio buttons for the Likert scale options
-        highest_button = QRadioButton()
-        high_button = QRadioButton()
-        low_button = QRadioButton()
-        lowest_button = QRadioButton()
+        self.highest_button = QRadioButton()
+        self.high_button = QRadioButton()
+        self.low_button = QRadioButton()
+        self.lowest_button = QRadioButton()
 
-        highest_button.toggled.connect(
-            lambda: self.on_selection(highest_button.isChecked(), val=3))
-        high_button.toggled.connect(
-            lambda: self.on_selection(high_button.isChecked(), val=2))
-        low_button.toggled.connect(
-            lambda: self.on_selection(low_button.isChecked(), val=1))
-        lowest_button.toggled.connect(
-            lambda: self.on_selection(lowest_button.isChecked(), val=0))
+        self.highest_button.toggled.connect(lambda: self.on_selection(
+            self.highest_button.isChecked(), value=3))
+        self.high_button.toggled.connect(
+            lambda: self.on_selection(self.high_button.isChecked(), value=2))
+        self.low_button.toggled.connect(
+            lambda: self.on_selection(self.low_button.isChecked(), value=1))
+        self.lowest_button.toggled.connect(
+            lambda: self.on_selection(self.lowest_button.isChecked(), value=0))
 
         # Add the labels and buttons to the h_layout
         h_layout.addWidget(highest)
-        h_layout.addWidget(highest_button)
+        h_layout.addWidget(self.highest_button)
         h_layout.addWidget(high)
-        h_layout.addWidget(high_button)
+        h_layout.addWidget(self.high_button)
         h_layout.addWidget(low)
-        h_layout.addWidget(low_button)
+        h_layout.addWidget(self.low_button)
         h_layout.addWidget(lowest)
-        h_layout.addWidget(lowest_button)
+        h_layout.addWidget(self.lowest_button)
 
-    def on_selection(self, checked, val):
+    def on_selection(self, checked, value):
         if checked:
-            print("Current value: ", val)
+            self.score = value
