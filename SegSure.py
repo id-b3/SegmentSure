@@ -202,8 +202,8 @@ class MainWindow(QWidget):
     def seg_button_clicked(self):
         if 'mlab' not in sys.modules:
             from mayavi import mlab
-
-        seg_arr = nib.load("segmentation.nii.gz").get_fdata()
+        matching = [s for s in self.revdata.seg_list if str(self.pid) in s]
+        seg_arr = nib.load(f"{matching[0]}").get_fdata()
         verts, faces, norms, vals = marching_cubes(seg_arr, 0)
         mlab.triangular_mesh(verts[:, 0], verts[:, 1], verts[:, 2], faces)
         mlab.show()
