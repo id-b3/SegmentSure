@@ -21,4 +21,4 @@ df['bp_seg_error'] = np.where(
     (df.bp_tlv > 8.0) | (df.bp_airvol > 0.4) | (df.bp_tlv < 3.0) |
     (df.bp_airvol < 0.08) | (df.bp_tcount < 150), 1, 0)
 
-df.to_csv("merged_summaries_nohtac.csv", index=False)
+df.to_csv("merged_summary_2_corrected.csv")

@@ -19,8 +19,7 @@ class DataLoader():
             str(s) for s in Path(seg_dir).iterdir() if s.is_file()
         ]
 
-        self.save_path = Path(summary_path).parent
-        self.save_name = Path(summary_path).name
+        self.save_path = Path(summary_path)
 
         self.prep_df()
         self.get_flagged_df()
@@ -35,14 +34,20 @@ class DataLoader():
             "bp_segmental_score", -1)
         self.summary_df["bp_subsegmental_score"] = self.summary_df.get(
             "bp_subsegmental_score", -1)
+        self.summary_df["bp_inspect"] = self.summary_df.get("bp_inspect", 0)
 
     def get_flagged_df(self):
         """
         Filters the summary by the bp_seg_error flag.
         """
-        self.flagged_df = self.summary_df[(self.summary_df.bp_seg_error == 1)
-                                          & (self.summary_df.bp_reviewed == 0)]
+        self.flagged_df = self.summary_df.sort_values(by=["bp_reviewed", "bp_seg_error"],
+                                                      ascending=[True, False])
         self.flagged_df.reset_index(drop=True, inplace=True)
+        print(
+            f"{len(self.flagged_df[(self.flagged_df.bp_seg_error == 1) & (self.flagged_df.bp_reviewed == 0)])} scans to review..."
+        )
+        print(f"Total scans: {len(self.flagged_df)}")
+        print(f"Next scans: {self.flagged_df.bp_seg_error.head(20)}")
 
     def get_random_sample(self, number: int = 100):
         """
@@ -52,6 +57,4 @@ class DataLoader():
         self.random_df.reset_index(drop=True, inplace=True)
 
     def save_flagged_df(self):
-        self.flagged_df.to_csv(str(self.save_path /
-                                   f"flagged_{self.save_name}"),
-                               index=False)
+        self.flagged_df.to_csv(str(self.save_path), index=False)

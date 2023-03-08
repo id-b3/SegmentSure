@@ -19,7 +19,8 @@ class MainWindow(QWidget):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.idx = 0
+        self.idx = -1
+        self.pid = 0
 
         self.viewer = SegmentationViewer(self)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -32,7 +33,7 @@ class MainWindow(QWidget):
 
         prev_button.setShortcut("p")
         next_button.setShortcut("n")
-        seg_button.setShortcut("s")
+        seg_button.setShortcut("q")
 
         # Connect the buttons to their respective functions
         prev_button.clicked.connect(self.prev_button_clicked)
@@ -63,14 +64,18 @@ class MainWindow(QWidget):
         # Create checkboxes
         self.error_checkbox = QCheckBox("Error", self)
         self.reviewed_checkbox = QCheckBox("Reviewed", self)
+        self.inspect_checkbox = QCheckBox("Inspect", self)
         self.error_checkbox.setFont(font)
         self.reviewed_checkbox.setFont(font)
+        self.inspect_checkbox.setFont(font)
 
         self.error_checkbox.setShortcut("e")
         self.reviewed_checkbox.setShortcut("r")
+        self.inspect_checkbox.setShortcut("i")
 
         self.error_checkbox.stateChanged.connect(self.err_box_checked)
         self.reviewed_checkbox.stateChanged.connect(self.rev_box_checked)
+        self.inspect_checkbox.stateChanged.connect(self.inspect_checked)
 
         # Create the combobox and add options
         self.reason_combobox = QComboBox(self)
@@ -80,10 +85,12 @@ class MainWindow(QWidget):
         self.reason_combobox.addItem("Other")
         self.reason_combobox.setFont(font)
 
-        self.scale_leaks = LikertScale(self, "Detected Leaks",
-                                       ["None", "Mild", "Moderate", "Severe"])
+        self.scale_leaks = LikertScale(
+            self, "Detected Leaks",
+            ["None", "Small", "Multiple/Medium", "Major"])
         self.scale_segmental = LikertScale(
-            self, "Segmental Branches", ["None", "Mild", "Moderate", "Severe"])
+            self, "Segmental Branches",
+            ["All", "1 Missing", ">2 missing", "Lobe(s) missing"])
         self.scale_subseg = LikertScale(
             self, "Segmentation Extent",
             ["Complete", "Almost Complete", "Partial", "Incomplete"])
@@ -111,6 +118,7 @@ class MainWindow(QWidget):
         checkbox_layout = QHBoxLayout()
         checkbox_layout.addWidget(self.error_checkbox)
         checkbox_layout.addWidget(self.reviewed_checkbox)
+        checkbox_layout.addWidget(self.inspect_checkbox)
         checkbox_layout.addWidget(self.reason_combobox)
         checkbox_layout.addWidget(files_dialog)
 
@@ -126,8 +134,8 @@ class MainWindow(QWidget):
 
     def load_case(self, increment: bool):
 
-        def _load_image(pid):
-            pid = str(pid)
+        def _load_image():
+            pid = str(self.pid)
             if any(pid in s for s in self.revdata.image_list):
                 matching = [s for s in self.revdata.image_list if pid in s]
                 image_path = matching[0]
@@ -135,7 +143,7 @@ class MainWindow(QWidget):
             else:
                 print(f"{pid} segmentation image not found")
 
-        def _load_values(pid):
+        def _load_values():
 
             def _get_color(value, min_range, max_range):
                 if value < min_range or value > max_range:
@@ -143,7 +151,6 @@ class MainWindow(QWidget):
                 else:
                     return "black"
 
-            pid = str(int(pid))
             tlv = self.revdata.flagged_df.at[self.idx, 'bp_tlv']
             tav = self.revdata.flagged_df.at[self.idx, 'bp_airvol']
             tac = self.revdata.flagged_df.at[self.idx, 'bp_tcount']
@@ -173,10 +180,23 @@ class MainWindow(QWidget):
             else:
                 self.reviewed_checkbox.setChecked(False)
 
+            self.scale_leaks.highest_button.setChecked(True)
+            self.scale_segmental.highest_button.setChecked(True)
+            self.scale_subseg.highest_button.setChecked(True)
+
         def _set_values():
-            self.revdata.flagged_df.at[
-                self.idx,
-                'bp_err_reason'] = self.reason_combobox.current_Text()
+            if self.idx == -1:
+                print("Starting Review")
+                return
+
+            if self.error_checkbox.isChecked():
+                self.revdata.flagged_df.at[
+                    self.idx,
+                    'bp_err_reason'] = self.reason_combobox.currentText()
+
+            if not self.reviewed_checkbox.isChecked():
+                self.reviewed_checkbox.setChecked(True)
+
             self.revdata.flagged_df.at[
                 self.idx, 'bp_leak_score'] = self.scale_leaks.score
             self.revdata.flagged_df.at[
@@ -196,20 +216,21 @@ class MainWindow(QWidget):
 
             if self.idx % 10 == 0:
                 self.revdata.save_flagged_df()
+                print(f"Saved review csv. List id {self.idx}")
 
             pt_id = self.revdata.flagged_df.at[self.idx, "participant_id"]
             return pt_id
 
         _set_values()
-        pid = _get_pid(increment)
-        _load_image(pid)
-        _load_values(pid)
+        self.pid = _get_pid(increment)
+        _load_image()
+        _load_values()
 
     def prev_button_clicked(self):
-        self.load_case(True)
+        self.load_case(False)
 
     def next_button_clicked(self):
-        self.load_case(False)
+        self.load_case(True)
 
     def seg_button_clicked(self):
         if 'mlab' not in sys.modules:
@@ -229,7 +250,6 @@ class MainWindow(QWidget):
             self.revdata.flagged_df.at[self.idx, "bp_seg_error"] = 1
         else:
             self.revdata.flagged_df.at[self.idx, "bp_seg_error"] = 0
-            print("Set error to 0")
 
     def rev_box_checked(self, state):
         if state == QtCore.Qt.Checked:
@@ -237,11 +257,19 @@ class MainWindow(QWidget):
         else:
             self.revdata.flagged_df.at[self.idx, "bp_reviewed"] = 0
 
+    def inspect_checked(self, state):
+        if state == QtCore.Qt.Checked:
+            self.revdata.flagged_df.at[self.idx, "bp_inspect"] = 1
+        else:
+            self.revdata.flagged_df.at[self.idx, "bp_inspect"] = 0
+
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_E:
             self.error_checkbox.toggle()
         elif event.key() == QtCore.Qt.Key_R:
             self.reviewed_checkbox.toggle()
+        elif event.key() == QtCore.Qt.Key_I:
+            self.inspect_checkbox.toggle()
         elif event.key() == QtCore.Qt.Key_P:
             self.prev_button_clicked()
         elif event.key() == QtCore.Qt.Key_N:
@@ -280,6 +308,7 @@ class MainWindow(QWidget):
 
 if __name__ == '__main__':
     app = QApplication([])
+    app.setApplicationName("Segment Sure")
     reviewer = MainWindow()
     # reviewer = QLabel("Hello World")
     reviewer.show()
