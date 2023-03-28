@@ -72,7 +72,7 @@ def process_segmentation(in_seg):
     axarr[2].axis("off")
     plt.tight_layout()
     id_name = re.search(r'\d{6}', str(in_seg)).group()
-    f.savefig(f"{in_seg.parent.parent}/Segmentation_Thumb_2/{id_name}.jpg")
+    f.savefig(f"{in_seg.parent.parent}/images/{id_name}.jpg")
     plt.close()
 
 
@@ -87,6 +87,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("in_seg", type=str, help="Input segmentation file.")
+    parser.add_argument("in_seg", type=str, help="Directory containing nifti segmentation to visualise.")
     in_args = parser.parse_args()
     main(in_args)
