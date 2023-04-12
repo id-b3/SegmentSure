@@ -19,10 +19,12 @@ def main(args):
         try:
             lobes = df.lobes[df.lobes.astype(bool)].value_counts()
             if (len(lobes) < 5) or (lobes < 5).any():
-                print(f"Potentially discontinuous segmentation in {row['participant_id']}")
+                print(
+                    f"Potential gap in segmentation in {row['participant_id']}"
+                )
                 row["bp_seg_error"] = 1
         except AttributeError as e:
-            print(f"Error processing pickle for {pid}")
+            print(f"Error processing pickle for {pid}\n{e}")
 
         return row
 
@@ -33,8 +35,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("merged_csv", type=str, help="Path to the merged summary file.")
-    parser.add_argument("pickle_dir", type=str, help="Path for pickles directory.")
+    parser.add_argument("merged_csv",
+                        type=str,
+                        help="Path to the merged summary file.")
+    parser.add_argument("pickle_dir",
+                        type=str,
+                        help="Path for pickles directory.")
     args = parser.parse_args()
 
     main(args)

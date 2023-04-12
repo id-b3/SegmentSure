@@ -1,2 +1,6 @@
 pyqt==5.15.7
 scikit-image==0.19.3
+mayavi==4.8.1
+nibabel==4.0.1
+pandas==1.4.3
+scikit-image=0.19.3
